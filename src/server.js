@@ -17,6 +17,8 @@ const server = express();
 server.use(cors());
 server.use(json());
 
+// LOGIN
+
 server.post("/login", async (req, res) => {
 
     const userLogin = req.body
@@ -57,6 +59,8 @@ server.post("/login", async (req, res) => {
 
 });
 
+// CADASTRO
+
 server.post("/sign-up", async (req, res) => {
 
     const userData = req.body 
@@ -90,6 +94,66 @@ server.post("/sign-up", async (req, res) => {
         res.sendStatus(500)
     }
 });
+
+// REGISTROS
+
+server.get("/registros", async (req, res) => {
+
+    try{
+        // ?
+        res.sendStatus(200)
+    }catch(err){
+        console.log(err)
+        res.sendStatus(500)
+    }
+});
+
+// ENTRADAS
+
+server.post("/entradas", async (req, res) => {
+
+    const entryData = req.body
+    const { authorization } = req.headers
+    const token = authorization?.replace("Bearer ", "")
+    const entryDataSchema = joi.object(
+        {
+            value: joi.number().required(),
+            description: joi.string().required()
+        }
+    );
+
+    const isBodyValid = entryDataSchema.validate(entryData, { abortEarly: false });
+
+    if ( isBodyValid.error ){
+        const errors = isBodyValid.error.details.map( err => err.message )
+
+        return res.status(422).send(errors)
+    }
+
+    try{
+
+        const sessionData = await db.collection("login").findOne({ token })
+
+        if ( !sessionData ){
+            return res.status(401).send("token inválido.")
+        }
+
+        await db.collection("earnings").insertOne(
+            { 
+                value: entryData.value, 
+                description: entryData.description,
+                userId: sessionData.userId
+            }
+        );
+
+        res.sendStatus(200)
+    }catch(err){
+        console.log(err)
+        res.sendStatus(500)
+    }
+});
+
+// SAÍDAS
 
 
 server.listen(process.env.PORT, () => console.log("servidor rodando na porta " + process.env.PORT));
