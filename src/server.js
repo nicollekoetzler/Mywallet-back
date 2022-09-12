@@ -3,6 +3,7 @@ import cors from "cors";
 import dotenv from "dotenv";
 import { MongoClient, ObjectId } from "mongodb";
 import joi from "joi";
+import { v4 as uuid } from 'uuid';
 
 dotenv.config();
 
@@ -19,6 +20,41 @@ server.use(json());
 server.post("/login", async (req, res) => {
 
     const userLogin = req.body
+    const userLoginSchema = joi.object(
+        {
+            email: joi.string().email().required(),
+            password: joi.string().required()
+        }
+    );
+
+    const isBodyValid = userLoginSchema.validate(userLogin);
+
+    if ( isBodyValid.error ){
+        return res.sendStatus(422);
+    }
+
+    try{
+        const token = uuid();
+        const isUserRegistered = await db.collection("users").findOne({ email: userLogin.email });
+
+        if( !isUserRegistered || isUserRegistered.password !== userLogin.password){
+            return res.status(401).send("Email ou senha incorretos.");
+        }
+        
+        await db.collection("login").insertOne(
+            { 
+                token,
+                userId: isUserRegistered._id
+            }
+        );
+
+        res.status(201).send({ token, name: isUserRegistered.name });
+
+    }catch(err){
+        console.log(err)
+        res.sendStatus(500)
+    }
+
 });
 
 server.post("/sign-up", async (req, res) => {
