@@ -99,18 +99,29 @@ server.post("/sign-up", async (req, res) => {
 
 server.get("/registros", async (req, res) => {
 
+    const { authorization } = req.headers
+    const token = authorization?.replace("Bearer ", "");
+
     try{
-        // ?
-        res.sendStatus(200)
+        
+        const sessionData = await db.collection("login").findOne({ token })
+
+        if ( !sessionData ){
+            return res.status(401).send("token inválido.");
+        }
+
+        const transactions = await db.collection("transactions").find({ userId: sessionData.userId }).toArray()
+
+        res.status(200).send(transactions)
     }catch(err){
         console.log(err)
         res.sendStatus(500)
     }
 });
 
-// ENTRADAS
+// TRANSACTIONS
 
-server.post("/entradas", async (req, res) => {
+server.post("/transactions", async (req, res) => {
 
     const entryData = req.body
     const { authorization } = req.headers
@@ -118,7 +129,8 @@ server.post("/entradas", async (req, res) => {
     const entryDataSchema = joi.object(
         {
             value: joi.number().required(),
-            description: joi.string().required()
+            description: joi.string().required(),
+            type: joi.string().required().valid("earning", "expense")
         }
     );
 
@@ -138,11 +150,12 @@ server.post("/entradas", async (req, res) => {
             return res.status(401).send("token inválido.")
         }
 
-        await db.collection("earnings").insertOne(
+        await db.collection("transactions").insertOne(
             { 
                 value: entryData.value, 
                 description: entryData.description,
-                userId: sessionData.userId
+                userId: sessionData.userId,
+                type: entryData.type
             }
         );
 
@@ -153,7 +166,6 @@ server.post("/entradas", async (req, res) => {
     }
 });
 
-// SAÍDAS
 
 
 server.listen(process.env.PORT, () => console.log("servidor rodando na porta " + process.env.PORT));
